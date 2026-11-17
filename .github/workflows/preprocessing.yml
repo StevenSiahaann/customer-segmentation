@@ -1,0 +1,76 @@
+name: Preprocessing Pipeline - Credit Card Default Dataset
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'preprocessing/**'
+      - 'creditcard_raw.*'
+      - '.github/workflows/preprocessing.yml'
+  workflow_dispatch:
+    inputs:
+      input_file:
+        description: 'Path to raw dataset file'
+        required: false
+        default: 'creditcard_raw.xls'
+
+jobs:
+  preprocessing:
+    name: Run Automated Preprocessing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.12.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.7'
+          cache: 'pip'
+
+      - name: Check environment
+        run: |
+          python --version
+          pip --version
+          echo "Working directory: $(pwd)"
+          ls -la
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas numpy scikit-learn openpyxl xlrd joblib
+
+      - name: Run preprocessing script
+        run: |
+          python preprocessing/automate_Steven-Gianmarg.py \
+            --input ${{ github.event.inputs.input_file || 'creditcard_raw.xls' }} \
+            --output preprocessing/creditcard_preprocessing
+
+      - name: Verify output files
+        run: |
+          echo "=== Preprocessing Output ==="
+          ls -lh preprocessing/creditcard_preprocessing/
+          echo ""
+          echo "=== X_train preview ==="
+          python -c "
+          import pandas as pd
+          df = pd.read_csv('preprocessing/creditcard_preprocessing/X_train.csv')
+          print('Shape:', df.shape)
+          print(df.head(3).to_string())
+          "
+
+      - name: Upload preprocessed dataset as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: creditcard-preprocessed-${{ github.run_number }}
+          path: preprocessing/creditcard_preprocessing/
+          retention-days: 30
+
+      - name: Commit preprocessed data back to repository
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ci: update preprocessed dataset [run #${{ github.run_number }}]"
+          file_pattern: "preprocessing/creditcard_preprocessing/*.csv preprocessing/creditcard_preprocessing/*.pkl"
+          commit_user_name: GitHub Actions Bot
+          commit_user_email: actions@github.com
