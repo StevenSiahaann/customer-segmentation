@@ -1,0 +1,6 @@
+openpyxl
+docxtpl
+docx2pdf
+docx
+google-cloud
+google-cloud-storage
